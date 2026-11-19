@@ -1,0 +1,54 @@
+
+name: Build THRILL KILL v1.4
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '*.zip'
+      - '.github/workflows/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar Android SDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+      - name: Extraer proyecto
+        run: |
+          ZIP="Thrill_Kill_Android_Project_v1_4_preview.zip"
+          mkdir -p proyecto
+          unzip -o "$ZIP" -d proyecto
+
+          WRAPPER=$(find proyecto -type f -name gradlew | head -n 1)
+
+          if [ -z "$WRAPPER" ]; then
+            echo "ERROR: No se encontró gradlew."
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$(dirname "$WRAPPER")" >> "$GITHUB_ENV"
+
+      - name: Compilar APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: THRILL-KILL-v1.4
+          path: proyecto/**/build/outputs/apk/debug/*.apk
