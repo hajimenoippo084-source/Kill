@@ -1,0 +1,76 @@
+
+name: Crear APK de THRILL KILL
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '*.zip'
+      - '.github/workflows/**'
+
+jobs:
+  construir:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME"
+
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
+
+      - name: Extraer proyecto
+        run: |
+          ZIP=$(find . -maxdepth 3 -type f -iname '*.zip' | head -n 1)
+
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: No se encontró el ZIP."
+            exit 1
+          fi
+
+          mkdir -p proyecto
+          unzip -o "$ZIP" -d proyecto
+
+          WRAPPER=$(find proyecto -type f -name gradlew | head -n 1)
+
+          if [ -z "$WRAPPER" ]; then
+            echo "ERROR: No se encontró gradlew dentro del ZIP."
+            find proyecto -maxdepth 4 -type f | head -n 80
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$(dirname "$WRAPPER")" >> "$GITHUB_ENV"
+
+      - name: Compilar APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Comprobar APK
+        run: |
+          APK=$(find "$PROJECT_DIR" -type f -path '*/outputs/apk/debug/*.apk' | head -n 1)
+
+          if [ -z "$APK" ]; then
+            echo "ERROR: No se generó el APK."
+            exit 1
+          fi
+
+          cp "$APK" "$GITHUB_WORKSPACE/THRILL-KILL.apk"
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: THRILL-KILL-APK
+          path: THRILL-KILL.apk
+          
